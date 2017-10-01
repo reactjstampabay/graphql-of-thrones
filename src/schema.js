@@ -5,7 +5,16 @@
 
 // graphql-tools combines a schema string with resolvers.
 import { makeExecutableSchema } from 'graphql-tools';
+import { withFilter, PubSub } from 'graphql-subscriptions';
 
+// Subscriptions
+const EVENTS = {
+  CHARACTER_KILLED: 'CHARACTER:KILLED'
+};
+
+const pubsub = new PubSub();
+
+// Mock Data
 const users = [
   { id: 1, first_name: 'Tywin', last_name: 'Lannister', email_address: 'tywin.lannister@casterlyrock.com'},
   { id: 2, first_name: 'Cersei', last_name: 'Lannister', email_address: 'cersei.lannister@casterlyrock.com'},
@@ -13,6 +22,7 @@ const users = [
   { id: 4, first_name: 'Tyrion', last_name: 'Lannister', email_address: 'tyrion.lannister@casterlyrock.com'},
 ];
 
+// Mock relational data
 const friends = [
   { id: 1, friend_id: 2 },
   { id: 1, friend_id: 3 },
@@ -33,6 +43,8 @@ const typeDefs = `
   type Mutation {
 		# Login to **GraphQL of Thrones**
     login(email: String!, password: String!) : User
+    # Kills a character
+    kill(user_id: Int!) : String
   }
 	
 	# The User type
@@ -40,7 +52,16 @@ const typeDefs = `
 		first_name: String
 		last_name: String
 		friends: [User!]
-		
+  }
+
+  type KillResult {
+    user_id: Int
+  }
+
+  # Real-time subscriptions
+  type Subscription {
+    # Fires everytime a certain character is killed
+    characterKilled(user_id: Int!) : KillResult
   }
 `;
 
@@ -78,6 +99,22 @@ const resolvers = {
       	.find(user => {
           user.email_address === args.email;
         });
+    },
+    kill: (root, args, context) => {
+      let user = users
+        .find(user => {
+          return user.id === args.user_id;
+        });
+      pubsub.publish(EVENTS.CHARACTER_KILLED, {user_id: user.id});
+      return `${user.first_name} ${user.last_name} has been killed. We wish you fortune in the wars to come.`;
+    }
+  },
+  Subscription: {
+    characterKilled: {
+      subscribe: () => {
+        console.log('subscribing...');
+        return pubsub.asyncIterator(EVENTS.CHARACTER_KILLED);
+      }
     }
   }
 };
