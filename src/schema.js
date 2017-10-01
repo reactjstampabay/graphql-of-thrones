@@ -56,6 +56,9 @@ const typeDefs = `
 
   type KillResult {
     user_id: Int
+    first_name: String
+    last_name: String
+    message: String
   }
 
   # Real-time subscriptions
@@ -105,14 +108,15 @@ const resolvers = {
         .find(user => {
           return user.id === args.user_id;
         });
-      pubsub.publish(EVENTS.CHARACTER_KILLED, {user_id: user.id});
+      let message = `${user.first_name} ${user.last_name} has been killed. We wish you fortune in the wars to come.`;
+
+      pubsub.publish(EVENTS.CHARACTER_KILLED, {characterKilled: {...user, user_id: user.id, message}});
       return `${user.first_name} ${user.last_name} has been killed. We wish you fortune in the wars to come.`;
     }
   },
   Subscription: {
     characterKilled: {
       subscribe: () => {
-        console.log('subscribing...');
         return pubsub.asyncIterator(EVENTS.CHARACTER_KILLED);
       }
     }
